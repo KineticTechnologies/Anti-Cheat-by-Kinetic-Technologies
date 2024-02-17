@@ -1,0 +1,73 @@
+CONFIGURE
+-- Shared Configuration (ModuleScript in ReplicatedStorage)
+local Config = {}
+
+-- Configuration for the anti-cheat system
+Config.AntiCheat = {
+    MaxWalkSpeed = 16, -- The maximum allowed WalkSpeed
+    MaxJumpPower = 50, -- The maximum allowed JumpPower
+    -- Add any other configuration values you need
+}
+
+return Config
+
+SERVER
+-- Server Script
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local BanService = game:GetService("BanService")
+
+-- Get the shared configuration
+local Config = require(ReplicatedStorage:WaitForChild("SharedConfiguration"))
+
+-- Create a RemoteEvent for the client to fire when it detects cheating
+local CheatDetectedEvent = Instance.new("RemoteEvent")
+CheatDetectedEvent.Name = "CheatDetectedEvent"
+CheatDetectedEvent.Parent = game.ReplicatedStorage
+
+-- Listen for the CheatDetectedEvent
+CheatDetectedEvent.OnServerEvent:Connect(function(player)
+    -- When a cheat is detected, permanently ban the player
+    BanService:BanPlayerAsync(player.UserId, math.huge, "Cheating detected")
+end)
+
+CLIENT
+-- Client Script
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Get the shared configuration
+local Config = require(ReplicatedStorage:WaitForChild("SharedConfiguration"))
+
+-- Get the CheatDetectedEvent
+local CheatDetectedEvent = ReplicatedStorage:WaitForChild("CheatDetectedEvent")
+
+-- Variables to keep track of the player's state
+local lastPosition = nil
+local lastTime = nil
+
+-- Function to check if the player is cheating
+local function isCheating(player)
+    local character = player.Character
+    if character then
+        local humanoid = character:FindFirstChild("Humanoid")
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if humanoid and rootPart then
+            -- Check for speed hacking
+            if humanoid.WalkSpeed > Config.AntiCheat.MaxWalkSpeed then
+                return true
+            end
+            -- Add checks for other cheats using the configuration values
+        end
+    end
+    return false
+end
+
+-- Check for cheating every frame
+RunService.RenderStepped:Connect(function()
+    if isCheating(Players.LocalPlayer) then
+        -- If the player is cheating, fire the CheatDetectedEvent
+        CheatDetectedEvent:FireServer()
+    end
+end)
